@@ -1,0 +1,31 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --obsidian-0:  #04060c;
+  --obsidian-1:  #080b14;
+  --obsidian-2:  #0e1220;
+  --gold-0:      #fde68a;
+  --gold-1:      #f0c060;
+  --gold-2:      #c89a30;
+  --ivory-0:     #faf8f3;
+  --ivory-1:     #e8e2d4;
+  --ivory-2:     #b8b0a0;
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-ui:      'Geist Mono', monospace;
+}
+
+html, body, #root {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--obsidian-0);
+  color: var(--ivory-1);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+canvas { display: block; }
