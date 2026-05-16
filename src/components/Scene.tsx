@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { Environment } from './effects/Environment'
 import { PostProcessing } from './effects/PostProcessing'
 import { Camera } from './effects/Camera'
+import { Board } from './board/Board'
 import { useGameStore } from '@/store/useGameStore'
 
 function SceneContent() {
@@ -12,17 +13,7 @@ function SceneContent() {
     <>
       <Environment />
       <Camera playerColor={playerColor} />
-
-      {/* Placeholder plateau — remplacé Phase 3 commit 3 */}
-      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-        <planeGeometry args={[8, 8]} />
-        <meshStandardMaterial
-          color="#1a1210"
-          roughness={0.3}
-          metalness={0.1}
-        />
-      </mesh>
-
+      <Board />
       <PostProcessing />
     </>
   )
@@ -35,7 +26,7 @@ export function Scene() {
       camera={{ position: [0, 10, 9], fov: 42 }}
       gl={{
         antialias: true,
-        toneMapping: 2, // ACESFilmicToneMapping
+        toneMapping: 2,
         toneMappingExposure: 1.2,
         powerPreference: 'high-performance',
       }}
