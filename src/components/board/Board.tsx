@@ -1,9 +1,7 @@
 import { useMemo } from 'react'
 import { useGameStore } from '@/store/useGameStore'
-import { Square } from './Square'
-import * as THREE from 'three'
+import { MarbleSquare } from './MarbleSquare'
 
-// Les 64 cases de l'échiquier
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1']
 
@@ -31,21 +29,11 @@ export function Board() {
 
   return (
     <group name="board">
-      {/* Base du plateau — bois sombre avec épaisseur */}
-      <mesh
-        receiveShadow
-        position={[0, -0.12, 0]}
-        castShadow
-      >
+      <mesh receiveShadow position={[0, -0.12, 0]} castShadow>
         <boxGeometry args={[8.6, 0.22, 8.6]} />
-        <meshStandardMaterial
-          color="#1a0e08"
-          roughness={0.8}
-          metalness={0.05}
-        />
+        <meshStandardMaterial color="#1a0e08" roughness={0.8} metalness={0.05} />
       </mesh>
 
-      {/* Bordure dorée autour du plateau */}
       <mesh position={[0, -0.005, 0]}>
         <boxGeometry args={[8.4, 0.03, 8.4]} />
         <meshStandardMaterial
@@ -57,9 +45,8 @@ export function Board() {
         />
       </mesh>
 
-      {/* Les 64 cases */}
       {squares.map(({ square, isLight, x, z }) => (
-        <Square
+        <MarbleSquare
           key={square}
           square={square as any}
           isLight={isLight}
