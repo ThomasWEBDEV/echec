@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import type { PieceSymbol, Color, Square } from 'chess.js'
 import { useGameStore } from '@/store/useGameStore'
 import { PieceGeometry } from './PieceGeometry'
+import { usePieceAnimation } from '@/hooks/usePieceAnimation'
 
 interface PieceProps {
   type: PieceSymbol
@@ -15,23 +16,26 @@ interface PieceProps {
 }
 
 export function Piece({ type, color, square, position }: PieceProps) {
-  const groupRef = useRef<Group>(null)
+  const rotationRef = useRef<Group>(null)
   const { selectedSquare, selectSquare, phase } = useGameStore()
   const isSelected = selectedSquare === square
   const isWhite = color === 'w'
 
-  const { posY, scale } = useSpring({
-    posY: isSelected ? 0.35 : 0,
+  // Hook animation déplacement
+  const { groupRef } = usePieceAnimation({ square, targetPosition: position })
+
+  const { scale } = useSpring({
     scale: isSelected ? 1.08 : 1.0,
     config: { tension: 280, friction: 24 },
   })
 
+  // Rotation lente sur sélection
   useFrame(({ clock }) => {
-    if (!groupRef.current) return
+    if (!rotationRef.current) return
     if (isSelected) {
-      groupRef.current.rotation.y = clock.getElapsedTime() * 0.8
+      rotationRef.current.rotation.y = clock.getElapsedTime() * 0.8
     } else {
-      groupRef.current.rotation.y += (0 - groupRef.current.rotation.y) * 0.06
+      rotationRef.current.rotation.y += (0 - rotationRef.current.rotation.y) * 0.06
     }
   })
 
@@ -57,25 +61,33 @@ export function Piece({ type, color, square, position }: PieceProps) {
   }, [isWhite, isSelected])
 
   return (
-    <animated.group
-      position-x={position[0]}
-      position-y={posY.to((y) => position[1] + y)}
-      position-z={position[2]}
-      scale={scale}
-      onClick={(e) => {
-        e.stopPropagation()
-        if (phase === 'playing') selectSquare(square)
-      }}
+    <group
+      ref={groupRef}
+      position={position}
     >
-      <group ref={groupRef}>
-        <PieceGeometry type={type} material={material} />
-      </group>
-      {isSelected && (
-        <mesh position={[0, -0.06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.38, 32]} />
-          <meshBasicMaterial color="#c89a30" transparent opacity={0.35} depthWrite={false} />
-        </mesh>
-      )}
-    </animated.group>
+      <animated.group
+        scale={scale}
+        onClick={(e) => {
+          e.stopPropagation()
+          if (phase === 'playing') selectSquare(square)
+        }}
+      >
+        <group ref={rotationRef}>
+          <PieceGeometry type={type} material={material} />
+        </group>
+
+        {isSelected && (
+          <mesh position={[0, -0.06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[0.38, 32]} />
+            <meshBasicMaterial
+              color="#c89a30"
+              transparent
+              opacity={0.35}
+              depthWrite={false}
+            />
+          </mesh>
+        )}
+      </animated.group>
+    </group>
   )
 }
