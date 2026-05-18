@@ -1,9 +1,10 @@
 import { Canvas } from '@react-three/fiber'
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import { Environment } from './effects/Environment'
 import { PostProcessing } from './effects/PostProcessing'
 import { Camera } from './effects/Camera'
 import { Board } from './board/Board'
+import { Pieces } from './pieces/Pieces'
 import { useGameStore } from '@/store/useGameStore'
 
 function SceneContent() {
@@ -14,12 +15,20 @@ function SceneContent() {
       <Environment />
       <Camera playerColor={playerColor} />
       <Board />
+      <Pieces />
       <PostProcessing />
     </>
   )
 }
 
 export function Scene() {
+  const { startGame, phase } = useGameStore()
+
+  // Démarrer une partie automatiquement pour voir les pièces
+  useEffect(() => {
+    if (phase === 'menu') startGame()
+  }, [])
+
   return (
     <Canvas
       shadows
