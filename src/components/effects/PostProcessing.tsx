@@ -4,24 +4,19 @@ import { BlendFunction } from 'postprocessing'
 export function PostProcessing() {
   return (
     <EffectComposer>
-      {/* Bloom — lueur dorée sur les pièces et le plateau */}
       <Bloom
-        intensity={0.8}
-        luminanceThreshold={0.6}
+        intensity={0.6}
+        luminanceThreshold={0.7}
         luminanceSmoothing={0.4}
         mipmapBlur
       />
-
-      {/* Film grain — texture cinématique */}
       <Noise
-        opacity={0.04}
+        opacity={0.012}
         blendFunction={BlendFunction.ADD}
       />
-
-      {/* Vignette — assombrit les bords, concentre le regard */}
       <Vignette
         offset={0.3}
-        darkness={0.8}
+        darkness={0.7}
         eskil={false}
         blendFunction={BlendFunction.NORMAL}
       />
