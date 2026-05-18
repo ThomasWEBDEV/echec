@@ -1,4 +1,4 @@
-import { Environment as DreiEnvironment, Stars } from '@react-three/drei'
+import { Stars } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
 import { useEffect } from 'react'
 import * as THREE from 'three'
@@ -13,9 +13,6 @@ export function Environment() {
 
   return (
     <>
-      {/* Éclairage ambiant HDRI — warehouse pour reflets sur métal */}
-      <DreiEnvironment preset="warehouse" environmentIntensity={0.4} />
-
       {/* Lumière principale — dorée, dramatique */}
       <directionalLight
         position={[5, 12, 5]}
@@ -32,14 +29,17 @@ export function Environment() {
         shadow-bias={-0.001}
       />
 
-      {/* Lumière de remplissage — froide, subtile */}
+      {/* Lumière ambiante */}
+      <ambientLight intensity={0.4} color="#a0a8c0" />
+
+      {/* Lumière de remplissage — froide */}
       <directionalLight
         position={[-8, 6, -6]}
         intensity={0.6}
         color="#a0c0ff"
       />
 
-      {/* Lumière de contour — rim light doré */}
+      {/* Rim light doré */}
       <pointLight
         position={[0, 2, -8]}
         intensity={1.2}
@@ -47,7 +47,14 @@ export function Environment() {
         distance={20}
       />
 
-      {/* Étoiles en fond */}
+      {/* Lumière sous le plateau — lueur mystérieuse */}
+      <pointLight
+        position={[0, -2, 0]}
+        intensity={0.4}
+        color="#c89a30"
+        distance={10}
+      />
+
       <Stars
         radius={80}
         depth={50}
