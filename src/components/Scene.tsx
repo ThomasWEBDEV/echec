@@ -5,6 +5,9 @@ import { PostProcessing } from './effects/PostProcessing'
 import { Camera } from './effects/Camera'
 import { Board } from './board/Board'
 import { Pieces } from './pieces/Pieces'
+import { CaptureEffect } from './effects/CaptureEffect'
+import { CheckEffect } from './effects/CheckEffect'
+import { Particles } from './effects/Particles'
 import { useGameStore } from '@/store/useGameStore'
 
 function SceneContent() {
@@ -14,8 +17,15 @@ function SceneContent() {
     <>
       <Environment />
       <Camera playerColor={playerColor} />
-      <Board />
-      <Pieces />
+      <Particles />
+      <Suspense fallback={null}>
+        <Board />
+      </Suspense>
+      <Suspense fallback={null}>
+        <Pieces />
+      </Suspense>
+      <CaptureEffect />
+      <CheckEffect />
       <PostProcessing />
     </>
   )
@@ -24,7 +34,6 @@ function SceneContent() {
 export function Scene() {
   const { startGame, phase } = useGameStore()
 
-  // Démarrer une partie automatiquement pour voir les pièces
   useEffect(() => {
     if (phase === 'menu') startGame()
   }, [])
