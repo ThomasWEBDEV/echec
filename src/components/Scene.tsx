@@ -9,9 +9,11 @@ import { CaptureEffect } from './effects/CaptureEffect'
 import { CheckEffect } from './effects/CheckEffect'
 import { Particles } from './effects/Particles'
 import { useGameStore } from '@/store/useGameStore'
+import { useStockfish } from '@/engine/useStockfish'
 
 function SceneContent() {
   const playerColor = useGameStore((s) => s.playerColor)
+  useStockfish()
 
   return (
     <>
@@ -32,12 +34,6 @@ function SceneContent() {
 }
 
 export function Scene() {
-  const { startGame, phase } = useGameStore()
-
-  useEffect(() => {
-    if (phase === 'menu') startGame()
-  }, [])
-
   return (
     <Canvas
       shadows
