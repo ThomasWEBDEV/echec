@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useGameStore } from '@/store/useGameStore'
 import { MarbleSquare } from './MarbleSquare'
+import { Coordinates } from './Coordinates'
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1']
@@ -29,13 +30,15 @@ export function Board() {
 
   return (
     <group name="board">
+      {/* Base bois */}
       <mesh receiveShadow position={[0, -0.12, 0]} castShadow>
-        <boxGeometry args={[8.6, 0.22, 8.6]} />
+        <boxGeometry args={[9.2, 0.22, 9.2]} />
         <meshStandardMaterial color="#1a0e08" roughness={0.8} metalness={0.05} />
       </mesh>
 
+      {/* Bordure dorée */}
       <mesh position={[0, -0.005, 0]}>
-        <boxGeometry args={[8.4, 0.03, 8.4]} />
+        <boxGeometry args={[8.8, 0.03, 8.8]} />
         <meshStandardMaterial
           color="#c89a30"
           roughness={0.3}
@@ -45,6 +48,7 @@ export function Board() {
         />
       </mesh>
 
+      {/* Cases */}
       {squares.map(({ square, isLight, x, z }) => (
         <MarbleSquare
           key={square}
@@ -57,6 +61,9 @@ export function Board() {
           isInCheck={isInCheck}
         />
       ))}
+
+      {/* Coordonnées */}
+      <Coordinates isFlipped={isFlipped} />
     </group>
   )
 }
