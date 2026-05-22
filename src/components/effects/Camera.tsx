@@ -5,8 +5,8 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import * as THREE from 'three'
 
 const CAMERA_POSITIONS = {
-  white: new THREE.Vector3(0, 10, 9),
-  black: new THREE.Vector3(0, 10, -9),
+  white: new THREE.Vector3(0, 14, 7),
+  black: new THREE.Vector3(0, 14, -7),
 }
 
 const CAMERA_TARGET = new THREE.Vector3(0, 0, 0)
