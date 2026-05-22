@@ -1,10 +1,9 @@
 import { Canvas } from '@react-three/fiber'
-import { Suspense, useEffect } from 'react'
+import { Suspense } from 'react'
 import { Environment } from './effects/Environment'
 import { PostProcessing } from './effects/PostProcessing'
 import { Camera } from './effects/Camera'
-import { Board } from './board/Board'
-import { Pieces } from './pieces/Pieces'
+import { ChessScene } from './pieces/ChessModel'
 import { CaptureEffect } from './effects/CaptureEffect'
 import { CheckEffect } from './effects/CheckEffect'
 import { Particles } from './effects/Particles'
@@ -21,10 +20,7 @@ function SceneContent() {
       <Camera playerColor={playerColor} />
       <Particles />
       <Suspense fallback={null}>
-        <Board />
-      </Suspense>
-      <Suspense fallback={null}>
-        <Pieces />
+        <ChessScene />
       </Suspense>
       <CaptureEffect />
       <CheckEffect />
@@ -37,7 +33,7 @@ export function Scene() {
   return (
     <Canvas
       shadows
-      camera={{ position: [0, 10, 9], fov: 42 }}
+      camera={{ position: [0, 14, 7], fov: 42 }}
       gl={{
         antialias: true,
         toneMapping: 2,
