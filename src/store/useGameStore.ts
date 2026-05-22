@@ -27,7 +27,7 @@ export type AnimationEvent =
   | { type: 'move'; from: Square; to: Square }
   | { type: 'capture'; from: Square; to: Square; piece: PieceSymbol }
   | { type: 'castle'; side: 'kingside' | 'queenside'; color: Color }
-  | { type: 'promotion'; square: Square; piece: PieceSymbol }
+  | { type: 'promotion'; from: Square; square: Square; piece: PieceSymbol }
   | { type: 'check'; kingSquare: Square }
   | { type: 'checkmate'; kingSquare: Square }
   | { type: 'en-passant'; from: Square; to: Square; capturedSquare: Square }
@@ -304,6 +304,7 @@ export const useGameStore = create<GameStore>()(
         } else if (result.flags.includes('p')) {
           animEvent = {
             type: 'promotion',
+            from: result.from as Square,
             square: result.to as Square,
             piece: result.promotion as PieceSymbol,
           }
