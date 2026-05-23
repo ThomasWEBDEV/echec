@@ -47,6 +47,7 @@ export function GameOver() {
         borderRadius: '20px',
         boxShadow: `0 0 60px ${color}20`,
         textAlign: 'center',
+        animation: 'slideUp 0.4s cubic-bezier(0.22,1,0.36,1)',
       }}>
         {/* Icône */}
         <div style={{
@@ -130,6 +131,10 @@ export function GameOver() {
         @keyframes fadeIn {
           from { opacity: 0; transform: scale(0.8); }
           to   { opacity: 1; transform: scale(1); }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(40px) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
         }
       `}</style>
     </div>
