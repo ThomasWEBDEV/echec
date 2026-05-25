@@ -319,12 +319,11 @@ export const useGameStore = create<GameStore>()(
           animEvent = { type: 'move', from: result.from as Square, to: result.to as Square }
         }
 
+        let checkedKingSquare: Square | null = null
         if (chess.inCheck()) {
           const turn = chess.turn()
           const kingPiece = chess.board().flat().find((p) => p?.type === 'k' && p.color === turn)
-          if (kingPiece) {
-            animEvent = { type: 'check', kingSquare: kingPiece.square as Square }
-          }
+          if (kingPiece) checkedKingSquare = kingPiece.square as Square
         }
 
         const capturedByWhite = [...get().capturedByWhite]
@@ -357,6 +356,7 @@ export const useGameStore = create<GameStore>()(
           materialScoreBlack: computeMaterialScore(capturedByBlack),
           isAiThinking: !isAi,
           isInCheck: chess.inCheck(),
+          checkedKingSquare,
           lastAnimationEvent: animEvent,
         })
 
