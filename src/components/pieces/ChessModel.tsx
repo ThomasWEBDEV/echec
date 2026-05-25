@@ -1,5 +1,5 @@
 // ============================================================
-// ChessModel — intègre le GLB chess_set avec la logique de jeu
+// ChessModel — GLB chess_set avec logique de jeu complète
 // ============================================================
 
 import { useGLTF } from '@react-three/drei'
@@ -13,38 +13,38 @@ const MODEL_PATH = '/models/chess_set.glb'
 const MODEL_SCALE = 5.19
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 
+// Mapping vérifié par projection monde (console diagnostic 2026-05-25)
 const INITIAL_PLACEMENT: Record<string, string> = {
-  'Piece_02':     'a1', 'Piece_03':     'b1', 'Piece_04':     'c1', 'Piece_05':    'd1',
-  'Piece_06':     'e1', 'Piece_04.001': 'f1', 'Piece_03.001': 'g1', 'Piece_02.001':'h1',
-  'Piece_01':     'a2', 'Piece_01.001': 'b2', 'Piece_01.002': 'c2', 'Piece_01.003':'d2',
-  'Piece_01.004': 'e2', 'Piece_01.005': 'f2', 'Piece_01.006': 'g2', 'Piece_01.007':'h2',
-  'Piece_02.003': 'a8', 'Piece_03.003': 'b8', 'Piece_04.003': 'c8', 'Piece_06.001':'d8',
-  'Piece_05.001': 'e8', 'Piece_04.002': 'f8', 'Piece_03.002': 'g8', 'Piece_02.002':'h8',
-  'Piece_01.015': 'a7', 'Piece_01.014': 'b7', 'Piece_01.013': 'c7', 'Piece_01.012':'d7',
-  'Piece_01.011': 'e7', 'Piece_01.010': 'f7', 'Piece_01.009': 'g7', 'Piece_01.008':'h7',
+  'Piece_02':    'a1', 'Piece_03':    'b1', 'Piece_04':    'c1', 'Piece_05':    'd1',
+  'Piece_06':    'e1', 'Piece_04001': 'f1', 'Piece_03001': 'g1', 'Piece_02001': 'h1',
+  'Piece_01':    'a2', 'Piece_01001': 'b2', 'Piece_01002': 'c2', 'Piece_01003': 'd2',
+  'Piece_01004': 'e2', 'Piece_01005': 'f2', 'Piece_01006': 'g2', 'Piece_01007': 'h2',
+  'Piece_02003': 'a8', 'Piece_03003': 'b8', 'Piece_04003': 'c8', 'Piece_06001': 'd8',
+  'Piece_05001': 'e8', 'Piece_04002': 'f8', 'Piece_03002': 'g8', 'Piece_02002': 'h8',
+  'Piece_01015': 'a7', 'Piece_01014': 'b7', 'Piece_01013': 'c7', 'Piece_01012': 'd7',
+  'Piece_01011': 'e7', 'Piece_01010': 'f7', 'Piece_01009': 'g7', 'Piece_01008': 'h7',
 }
 
 type LocalGrid = {
-  origin: THREE.Vector3
+  origin:   THREE.Vector3
   fileStep: THREE.Vector3
   rankStep: THREE.Vector3
 }
 
 type WorldGrid = {
-  origin: THREE.Vector3
+  origin:    THREE.Vector3
   fileStepW: THREE.Vector3
   rankStepW: THREE.Vector3
-  boardY: number
 }
 
 type AnimState = {
-  cur: THREE.Vector3
-  from: THREE.Vector3
-  to: THREE.Vector3
-  t: number
+  cur:    THREE.Vector3
+  from:   THREE.Vector3
+  to:     THREE.Vector3
+  t:      number
   active: boolean
-  arcH: number
-  dur: number
+  arcH:   number
+  dur:    number
 }
 
 // ── Overlays ──────────────────────────────────────────────────────────────────
@@ -86,10 +86,9 @@ export function ChessScene() {
     legalMoves, lastMove, isInCheck, checkedKingSquare,
   } = useGameStore()
 
-  // Repère LOCAL (espace parent des nodes) — pour bouger les pièces
-  const grid = useRef<LocalGrid | null>(null)
-  // Repère MONDE — pour overlays et détection de clic
+  const grid      = useRef<LocalGrid | null>(null)
   const gridWorld = useRef<WorldGrid | null>(null)
+  const gridFrameDelay    = useRef(0)
   const worldGridComputed = useRef(false)
   const [gridReady, setGridReady] = useState(false)
   const squareWorldCache = useRef(new Map<string, THREE.Vector3>())
@@ -101,20 +100,32 @@ export function ChessScene() {
     new Map<string, string | null>(Object.entries(INITIAL_PLACEMENT))
   )
   const anims = useRef(new Map<string, AnimState>())
+  const nodeRestY = useRef(new Map<string, number>())
 
-  // ── Initialisation locale + matériaux ───────────────────────────────────
+  // ── Initialisation locale + matériaux ────────────────────────────────────
   useEffect(() => {
-    const ref_a1 = nodes['Piece_02']
-    const ref_b1 = nodes['Piece_03']
-    const ref_a2 = nodes['Piece_01.007']
-    if (!ref_a1 || !ref_b1 || !ref_a2) return
+    // Références pour grille locale :
+    //   a1 = Piece_02 (tour), h1 = Piece_02001 (tour), a2 = Piece_01 (pion)
+    //   On n'utilise PAS Piece_03 (cavalier) dont le Y local est différent.
+    const a1 = nodes['Piece_02']
+    const h1 = nodes['Piece_02001']
+    const a2 = nodes['Piece_01']
+    if (!a1 || !h1 || !a2) return
+
+    // fileStep depuis h1 (7 cases) divisé par 7, Y aplati
+    const rawFile = new THREE.Vector3().subVectors(h1.position, a1.position).divideScalar(7)
+    rawFile.y = 0
+
+    const rawRank = new THREE.Vector3().subVectors(a2.position, a1.position)
+    rawRank.y = 0
 
     grid.current = {
-      origin:   ref_a1.position.clone(),
-      fileStep: new THREE.Vector3().subVectors(ref_b1.position, ref_a1.position),
-      rankStep: new THREE.Vector3().subVectors(ref_a2.position, ref_a1.position),
+      origin:   a1.position.clone(),
+      fileStep: rawFile,
+      rankStep: rawRank,
     }
 
+    // Cloner les matériaux et initialiser les animations
     Object.keys(INITIAL_PLACEMENT).forEach((nodeId) => {
       const node = nodes[nodeId]
       if (!node) return
@@ -128,6 +139,7 @@ export function ChessScene() {
         }
       })
       const pos = node.position.clone()
+      nodeRestY.current.set(nodeId, pos.y)
       anims.current.set(nodeId, {
         cur: pos.clone(), from: pos.clone(), to: pos.clone(),
         t: 1, active: false, arcH: 0, dur: 0.5,
@@ -135,40 +147,42 @@ export function ChessScene() {
     })
   }, [nodes])
 
-  // ── Repère monde (calculé au 1er frame, matrices valides) ────────────────
+  // ── Repère monde — attend 10 frames pour matrices finalisées ─────────────
   useFrame(() => {
     if (worldGridComputed.current || !grid.current) return
-    const ref_a1 = nodes['Piece_02']
-    const ref_b1 = nodes['Piece_03']
-    const ref_a2 = nodes['Piece_01.007']
-    if (!ref_a1 || !ref_b1 || !ref_a2) return
+    gridFrameDelay.current++
+    if (gridFrameDelay.current < 10) return
+
+    const a1 = nodes['Piece_02']
+    const h1 = nodes['Piece_02001']
+    const a2 = nodes['Piece_01']
+    if (!a1 || !h1 || !a2) return
 
     const a1w = new THREE.Vector3()
-    const b1w = new THREE.Vector3()
+    const h1w = new THREE.Vector3()
     const a2w = new THREE.Vector3()
-    ref_a1.getWorldPosition(a1w)
-    ref_b1.getWorldPosition(b1w)
-    ref_a2.getWorldPosition(a2w)
+    a1.getWorldPosition(a1w)
+    h1.getWorldPosition(h1w)
+    a2.getWorldPosition(a2w)
 
-    const fileStepW = b1w.clone().sub(a1w)
+    // fileStepW depuis h1 (7 cases), Y=0 (plan du plateau)
+    const fileStepW = h1w.clone().sub(a1w).divideScalar(7)
+    fileStepW.y = 0
+
+    // rankStepW depuis a2, Y=0
     const rankStepW = a2w.clone().sub(a1w)
+    rankStepW.y = 0
 
-    gridWorld.current = {
-      origin: a1w.clone(),
-      fileStepW,
-      rankStepW,
-      boardY: a1w.y,
-    }
+    gridWorld.current = { origin: a1w.clone(), fileStepW, rankStepW }
 
-    // Précalcul des positions monde de chaque case
+    // Précalcul du centre monde de chaque case
     const map = squareWorldCache.current
     for (let fi = 0; fi < 8; fi++) {
       for (let ri = 0; ri < 8; ri++) {
         const sq = `${FILES[fi]}${ri + 1}`
-        const pos = a1w.clone()
+        map.set(sq, a1w.clone()
           .addScaledVector(fileStepW, fi)
-          .addScaledVector(rankStepW, ri)
-        map.set(sq, pos)
+          .addScaledVector(rankStepW, ri))
       }
     }
 
@@ -176,7 +190,7 @@ export function ChessScene() {
     setGridReady(true)
   })
 
-  // ── Reset au démarrage d'une partie ─────────────────────────────────────
+  // ── Reset au démarrage d'une partie ──────────────────────────────────────
   useEffect(() => {
     if (phase !== 'playing' || !grid.current) return
     sqToNode.current = new Map(Object.entries(INITIAL_PLACEMENT).map(([k, v]) => [v, k]))
@@ -185,41 +199,44 @@ export function ChessScene() {
       const node = nodes[nodeId]
       if (!node) return
       node.visible = true
-      const pos = squareLocalPos(sq)
+      const restY = nodeRestY.current.get(nodeId)
+      const pos = squareLocalPos(sq, restY)
       node.position.copy(pos)
       const anim = anims.current.get(nodeId)
       if (anim) { anim.cur.copy(pos); anim.from.copy(pos); anim.to.copy(pos); anim.t = 1; anim.active = false }
     })
   }, [phase])
 
-  // ── Position locale d'une case (pour déplacer les nodes) ────────────────
-  const squareLocalPos = (sq: string): THREE.Vector3 => {
+  // ── Position locale d'une case ────────────────────────────────────────────
+  const squareLocalPos = (sq: string, restY?: number): THREE.Vector3 => {
     if (!grid.current) return new THREE.Vector3()
     const fi = FILES.indexOf(sq[0])
     const ri = parseInt(sq[1]) - 1
     const { origin, fileStep, rankStep } = grid.current
     return new THREE.Vector3(
       origin.x + fi * fileStep.x + ri * rankStep.x,
-      origin.y,
+      restY !== undefined ? restY : origin.y,
       origin.z + fi * fileStep.z + ri * rankStep.z,
     )
   }
 
-  // ── Animation ────────────────────────────────────────────────────────────
+  // ── Animation ─────────────────────────────────────────────────────────────
   const startAnim = (nodeId: string, toSq: string) => {
     const anim = anims.current.get(nodeId)
-    if (!anim) return
-    const to = squareLocalPos(toSq)
+    if (!anim || !grid.current) return
+    const restY = nodeRestY.current.get(nodeId)
+    const to = squareLocalPos(toSq, restY)
     const dist = anim.cur.distanceTo(to)
+    const sq = grid.current.fileStep.length() // taille d'une case en local
     anim.from  = anim.cur.clone()
     anim.to    = to.clone()
-    anim.arcH  = 14 + dist * 0.15
-    anim.dur   = Math.min(0.3 + dist * 0.003, 0.65)
+    anim.arcH  = sq * 3 + dist * 0.08
+    anim.dur   = Math.min(0.3 + (dist / sq) * 0.06, 0.65)
     anim.t     = 0
     anim.active = true
   }
 
-  // ── Événements de jeu ────────────────────────────────────────────────────
+  // ── Événements de jeu ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!lastAnimationEvent || !grid.current) return
     const ev = lastAnimationEvent
@@ -243,13 +260,14 @@ export function ChessScene() {
     }
 
     switch (ev.type) {
-      case 'move':    moveNode(ev.from, ev.to); break
-      case 'capture': captureAt(ev.to); moveNode(ev.from, ev.to); break
+      case 'move':       moveNode(ev.from, ev.to); break
+      case 'capture':    captureAt(ev.to); moveNode(ev.from, ev.to); break
       case 'en-passant': captureAt(ev.capturedSquare); moveNode(ev.from, ev.to); break
       case 'castle': {
         const rank = ev.color === 'w' ? '1' : '8'
         moveNode(`e${rank}`, ev.side === 'kingside' ? `g${rank}` : `c${rank}`)
-        moveNode(ev.side === 'kingside' ? `h${rank}` : `a${rank}`, ev.side === 'kingside' ? `f${rank}` : `d${rank}`)
+        moveNode(ev.side === 'kingside' ? `h${rank}` : `a${rank}`,
+                 ev.side === 'kingside' ? `f${rank}` : `d${rank}`)
         break
       }
       case 'promotion': moveNode(ev.from, ev.square); break
@@ -274,7 +292,7 @@ export function ChessScene() {
     })
   })
 
-  // ── Highlight pièce sélectionnée ─────────────────────────────────────────
+  // ── Highlight pièce sélectionnée ──────────────────────────────────────────
   useEffect(() => {
     nodeToSq.current.forEach((sq, nodeId) => {
       const node = nodes[nodeId]
@@ -291,7 +309,7 @@ export function ChessScene() {
     })
   }, [selectedSquare, nodes])
 
-  // ── Résolution clic sur pièce ────────────────────────────────────────────
+  // ── Résolution clic ───────────────────────────────────────────────────────
   const resolveClickedPiece = (obj: THREE.Object3D): Square | null => {
     let cur: THREE.Object3D | null = obj
     while (cur) {
@@ -304,11 +322,10 @@ export function ChessScene() {
     return null
   }
 
-  // ── Résolution clic sur case vide (via position monde) ──────────────────
   const resolveClickedPos = (worldPoint: THREE.Vector3): Square | null => {
     if (!gridWorld.current) return null
     const { origin, fileStepW, rankStepW } = gridWorld.current
-    const delta = worldPoint.clone().sub(origin)
+    const delta = new THREE.Vector3(worldPoint.x - origin.x, 0, worldPoint.z - origin.z)
     const fi = Math.round(delta.dot(fileStepW) / fileStepW.lengthSq())
     const ri = Math.round(delta.dot(rankStepW) / rankStepW.lengthSq())
     if (fi < 0 || fi > 7 || ri < 0 || ri > 7) return null
