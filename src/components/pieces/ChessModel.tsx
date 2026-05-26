@@ -8,6 +8,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { Square } from 'chess.js'
 import { useGameStore } from '@/store/useGameStore'
+import type { AnimationEvent } from '@/store/useGameStore'
 
 const MODEL_PATH = '/models/chess_set.glb'
 const MODEL_SCALE = 5.19
@@ -19,8 +20,8 @@ const INITIAL_PLACEMENT: Record<string, string> = {
   'Piece_06':    'e1', 'Piece_04001': 'f1', 'Piece_03001': 'g1', 'Piece_02001': 'h1',
   'Piece_01':    'a2', 'Piece_01001': 'b2', 'Piece_01002': 'c2', 'Piece_01003': 'd2',
   'Piece_01004': 'e2', 'Piece_01005': 'f2', 'Piece_01006': 'g2', 'Piece_01007': 'h2',
-  'Piece_02003': 'a8', 'Piece_03003': 'b8', 'Piece_04003': 'c8', 'Piece_06001': 'd8',
-  'Piece_05001': 'e8', 'Piece_04002': 'f8', 'Piece_03002': 'g8', 'Piece_02002': 'h8',
+  'Piece_02003': 'a8', 'Piece_03003': 'b8', 'Piece_04003': 'c8', 'Piece_05001': 'd8',
+  'Piece_06001': 'e8', 'Piece_04002': 'f8', 'Piece_03002': 'g8', 'Piece_02002': 'h8',
   'Piece_01015': 'a7', 'Piece_01014': 'b7', 'Piece_01013': 'c7', 'Piece_01012': 'd7',
   'Piece_01011': 'e7', 'Piece_01010': 'f7', 'Piece_01009': 'g7', 'Piece_01008': 'h7',
 }
@@ -83,7 +84,7 @@ export function ChessScene() {
   const { scene, nodes } = useGLTF(MODEL_PATH) as any
   const {
     lastAnimationEvent, selectedSquare, phase, selectSquare,
-    legalMoves, lastMove, isInCheck, checkedKingSquare,
+    legalMoves, lastMove, isInCheck, checkedKingSquare, onAnimationComplete,
   } = useGameStore()
 
   const grid      = useRef<LocalGrid | null>(null)
@@ -101,6 +102,8 @@ export function ChessScene() {
   )
   const anims = useRef(new Map<string, AnimState>())
   const nodeRestY = useRef(new Map<string, number>())
+  const eventQueue = useRef<AnimationEvent[]>([])
+  const wasAnimatingRef = useRef(false)
 
   // ── Initialisation locale + matériaux ────────────────────────────────────
   useEffect(() => {
@@ -193,6 +196,8 @@ export function ChessScene() {
   // ── Reset au démarrage d'une partie ──────────────────────────────────────
   useEffect(() => {
     if (phase !== 'playing' || !grid.current) return
+    eventQueue.current = []
+    wasAnimatingRef.current = false
     sqToNode.current = new Map(Object.entries(INITIAL_PLACEMENT).map(([k, v]) => [v, k]))
     nodeToSq.current = new Map(Object.entries(INITIAL_PLACEMENT))
     Object.entries(INITIAL_PLACEMENT).forEach(([nodeId, sq]) => {
@@ -236,10 +241,9 @@ export function ChessScene() {
     anim.active = true
   }
 
-  // ── Événements de jeu ─────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!lastAnimationEvent || !grid.current) return
-    const ev = lastAnimationEvent
+  // ── Traitement d'un événement de jeu ──────────────────────────────────────
+  const processEvent = (ev: AnimationEvent) => {
+    if (!grid.current) return
 
     const captureAt = (sq: string) => {
       const id = sqToNode.current.get(sq)
@@ -272,9 +276,16 @@ export function ChessScene() {
       }
       case 'promotion': moveNode(ev.from, ev.square); break
     }
+  }
+
+  // ── File d'attente d'événements — empêche la perte si deux events arrivent
+  // avant que React re-render (React 18 peut batcher plusieurs set() zustand)
+  useEffect(() => {
+    if (!lastAnimationEvent) return
+    eventQueue.current.push(lastAnimationEvent)
   }, [lastAnimationEvent])
 
-  // ── Boucle d'animation ────────────────────────────────────────────────────
+  // ── Boucle d'animation + traitement séquentiel de la file ─────────────────
   useFrame((_, dt) => {
     anims.current.forEach((anim, nodeId) => {
       if (!anim.active) return
@@ -290,6 +301,21 @@ export function ChessScene() {
       }
       node.position.copy(anim.cur)
     })
+
+    // Traiter le prochain événement en file si aucune animation active
+    let anyActive = [...anims.current.values()].some((a) => a.active)
+    if (!anyActive && eventQueue.current.length > 0) {
+      processEvent(eventQueue.current.shift()!)
+      // Recalculer : processEvent peut avoir démarré une nouvelle animation
+      anyActive = [...anims.current.values()].some((a) => a.active)
+    }
+
+    // Détecter la fin de toutes les animations (file vide + aucune anim active)
+    const isAnimating = anyActive || eventQueue.current.length > 0
+    if (wasAnimatingRef.current && !isAnimating) {
+      onAnimationComplete()
+    }
+    wasAnimatingRef.current = isAnimating
   })
 
   // ── Highlight pièce sélectionnée ──────────────────────────────────────────
