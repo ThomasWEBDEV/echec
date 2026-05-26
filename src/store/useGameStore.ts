@@ -71,6 +71,7 @@ export interface GameStore {
   tickClock: () => void
   clearAnimationEvent: () => void
   cancelPremove: () => void
+  onAnimationComplete: () => void
   _executeMove: (from: Square, to: Square, promotion?: PieceSymbol, isAi?: boolean) => void
 }
 
@@ -165,11 +166,7 @@ export const useGameStore = create<GameStore>()(
           .find((m) => m.to === sq)
 
         if (legalMove) {
-          if (legalMove.flags.includes('p')) {
-            set({ pendingPromotion: { from: selectedSquare, to: sq }, selectedSquare: null, legalMoves: [] })
-            return
-          }
-          get()._executeMove(selectedSquare, sq)
+          get()._executeMove(selectedSquare, sq, legalMove.flags.includes('p') ? 'q' : undefined)
           return
         }
 
@@ -281,6 +278,8 @@ export const useGameStore = create<GameStore>()(
 
       clearAnimationEvent: () => set({ lastAnimationEvent: null }),
 
+      onAnimationComplete: () => set({ isAiThinking: false }),
+
       _executeMove: (from: Square, to: Square, promotion: PieceSymbol = 'q', isAi = false) => {
         const result = chess.move({ from, to, promotion })
         if (!result) return
@@ -354,7 +353,7 @@ export const useGameStore = create<GameStore>()(
           capturedByBlack,
           materialScoreWhite: computeMaterialScore(capturedByWhite),
           materialScoreBlack: computeMaterialScore(capturedByBlack),
-          isAiThinking: !isAi,
+          isAiThinking: isAi ? get().isAiThinking : true,
           isInCheck: chess.inCheck(),
           checkedKingSquare,
           lastAnimationEvent: animEvent,
