@@ -31,6 +31,7 @@ export type AnimationEvent =
   | { type: 'check'; kingSquare: Square }
   | { type: 'checkmate'; kingSquare: Square }
   | { type: 'en-passant'; from: Square; to: Square; capturedSquare: Square }
+  | { type: 'undo'; fen: string }
 
 export interface GameStore {
   difficulty: Difficulty
@@ -213,15 +214,18 @@ export const useGameStore = create<GameStore>()(
         const fenHistory = [...get().fenHistory]
         fenHistory.pop()
         fenHistory.pop()
+        const newFen = chess.fen()
         set({
-          fen: chess.fen(),
+          fen: newFen,
           selectedSquare: null,
           legalMoves: [],
-          lastMove: null,
+          lastMove: history.length > 0 ? { from: history[history.length - 1].from, to: history[history.length - 1].to } : null,
           moveHistory: history,
           fenHistory,
           isAiThinking: false,
           isInCheck: chess.inCheck(),
+          checkedKingSquare: null,
+          lastAnimationEvent: { type: 'undo', fen: newFen },
         })
       },
 
