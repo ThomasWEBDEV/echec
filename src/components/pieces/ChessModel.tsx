@@ -6,6 +6,7 @@ import { useGLTF } from '@react-three/drei'
 import { useEffect, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { Chess } from 'chess.js'
 import type { Square } from 'chess.js'
 import { useGameStore } from '@/store/useGameStore'
 import type { AnimationEvent } from '@/store/useGameStore'
@@ -24,6 +25,23 @@ const INITIAL_PLACEMENT: Record<string, string> = {
   'Piece_06001': 'e8', 'Piece_04002': 'f8', 'Piece_03002': 'g8', 'Piece_02002': 'h8',
   'Piece_01015': 'a7', 'Piece_01014': 'b7', 'Piece_01013': 'c7', 'Piece_01012': 'd7',
   'Piece_01011': 'e7', 'Piece_01010': 'f7', 'Piece_01009': 'g7', 'Piece_01008': 'h7',
+}
+
+// Dérive le type de pièce depuis le nom du node GLB
+function getNodePieceType(nodeId: string): string {
+  if (nodeId.startsWith('Piece_01')) return 'p'
+  if (nodeId.startsWith('Piece_02')) return 'r'
+  if (nodeId.startsWith('Piece_03')) return 'n'
+  if (nodeId.startsWith('Piece_04')) return 'b'
+  if (nodeId.startsWith('Piece_05')) return 'q'
+  if (nodeId.startsWith('Piece_06')) return 'k'
+  return 'p'
+}
+
+// Dérive la couleur depuis la case initiale (rang 1-2 = blanc, 7-8 = noir)
+function getNodeColor(nodeId: string): 'w' | 'b' {
+  const sq = INITIAL_PLACEMENT[nodeId]
+  return (sq[1] === '1' || sq[1] === '2') ? 'w' : 'b'
 }
 
 type LocalGrid = {
@@ -241,6 +259,61 @@ export function ChessScene() {
     anim.active = true
   }
 
+  // ── Rebuild complet depuis un FEN (utilisé par undo) ─────────────────────
+  const resetBoardFromFen = (fen: string) => {
+    if (!grid.current) return
+
+    // Vider la file d'animation
+    eventQueue.current = []
+
+    // Construire le pool de nodes par (couleur+type)
+    const pool: Record<string, string[]> = {}
+    for (const nodeId of Object.keys(INITIAL_PLACEMENT)) {
+      const key = getNodeColor(nodeId) + getNodePieceType(nodeId)
+      if (!pool[key]) pool[key] = []
+      pool[key].push(nodeId)
+    }
+
+    // Collecter les pièces requises depuis le FEN
+    const needed: Record<string, string[]> = {}
+    const tempChess = new Chess(fen)
+    for (const rank of tempChess.board()) {
+      for (const cell of rank) {
+        if (!cell) continue
+        const key = cell.color + cell.type
+        if (!needed[key]) needed[key] = []
+        needed[key].push(cell.square)
+      }
+    }
+
+    // Réinitialiser les maps
+    sqToNode.current.clear()
+    nodeToSq.current.clear()
+
+    // Assigner les nodes aux cases et positionner instantanément
+    for (const [key, nodePool] of Object.entries(pool)) {
+      const squares = needed[key] ?? []
+      nodePool.forEach((nodeId, i) => {
+        const node = nodes[nodeId]
+        if (!node) return
+        if (i < squares.length) {
+          const sq = squares[i]
+          sqToNode.current.set(sq, nodeId)
+          nodeToSq.current.set(nodeId, sq)
+          node.visible = true
+          const restY = nodeRestY.current.get(nodeId)
+          const pos = squareLocalPos(sq, restY)
+          node.position.copy(pos)
+          const anim = anims.current.get(nodeId)
+          if (anim) { anim.cur.copy(pos); anim.from.copy(pos); anim.to.copy(pos); anim.t = 1; anim.active = false }
+        } else {
+          nodeToSq.current.set(nodeId, null)
+          node.visible = false
+        }
+      })
+    }
+  }
+
   // ── Traitement d'un événement de jeu ──────────────────────────────────────
   const processEvent = (ev: AnimationEvent) => {
     if (!grid.current) return
@@ -282,6 +355,11 @@ export function ChessScene() {
   // avant que React re-render (React 18 peut batcher plusieurs set() zustand)
   useEffect(() => {
     if (!lastAnimationEvent) return
+    if (lastAnimationEvent.type === 'undo') {
+      // Undo : repositionnement immédiat, bypass la file d'animation
+      resetBoardFromFen(lastAnimationEvent.fen)
+      return
+    }
     eventQueue.current.push(lastAnimationEvent)
   }, [lastAnimationEvent])
 
