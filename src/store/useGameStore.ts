@@ -112,6 +112,7 @@ export const useGameStore = create<GameStore>()(
       startGame: () => {
         chess = new Chess()
         const config = DIFFICULTY_MAP[get().difficulty]
+        const playerColor = get().playerColor
         set({
           phase: 'playing',
           fen: chess.fen(),
@@ -124,7 +125,8 @@ export const useGameStore = create<GameStore>()(
           capturedByBlack: [],
           materialScoreWhite: 0,
           materialScoreBlack: 0,
-          isAiThinking: false,
+          // Si le joueur est noir, l'IA (blanc) doit jouer en premier
+          isAiThinking: playerColor === 'black',
           isInCheck: false,
           checkedKingSquare: null,
           endState: null,
