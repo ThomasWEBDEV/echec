@@ -33,7 +33,7 @@ export function Scene() {
   return (
     <Canvas
       shadows
-      camera={{ position: [0, 14, 7], fov: 42 }}
+      camera={{ position: [0, 10, 9], fov: 42 }}
       gl={{
         antialias: true,
         toneMapping: 2,
