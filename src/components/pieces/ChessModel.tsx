@@ -103,6 +103,7 @@ export function ChessScene() {
   const {
     lastAnimationEvent, selectedSquare, phase, selectSquare,
     legalMoves, lastMove, isInCheck, checkedKingSquare, onAnimationComplete,
+    isFlipped, fen,
   } = useGameStore()
 
   const grid      = useRef<LocalGrid | null>(null)
@@ -122,6 +123,8 @@ export function ChessScene() {
   const nodeRestY = useRef(new Map<string, number>())
   const eventQueue = useRef<AnimationEvent[]>([])
   const wasAnimatingRef = useRef(false)
+  const isFlippedRef = useRef(isFlipped)
+  isFlippedRef.current = isFlipped
 
   // ── Initialisation locale + matériaux ────────────────────────────────────
   useEffect(() => {
@@ -196,14 +199,16 @@ export function ChessScene() {
 
     gridWorld.current = { origin: a1w.clone(), fileStepW, rankStepW }
 
-    // Précalcul du centre monde de chaque case
+    // Précalcul du centre monde de chaque case (respecte isFlipped)
     const map = squareWorldCache.current
     for (let fi = 0; fi < 8; fi++) {
       for (let ri = 0; ri < 8; ri++) {
         const sq = `${FILES[fi]}${ri + 1}`
+        const physFi = isFlippedRef.current ? 7 - fi : fi
+        const physRi = isFlippedRef.current ? 7 - ri : ri
         map.set(sq, a1w.clone()
-          .addScaledVector(fileStepW, fi)
-          .addScaledVector(rankStepW, ri))
+          .addScaledVector(fileStepW, physFi)
+          .addScaledVector(rankStepW, physRi))
       }
     }
 
@@ -230,11 +235,13 @@ export function ChessScene() {
     })
   }, [phase])
 
-  // ── Position locale d'une case ────────────────────────────────────────────
+  // ── Position locale d'une case (respecte isFlipped) ─────────────────────
   const squareLocalPos = (sq: string, restY?: number): THREE.Vector3 => {
     if (!grid.current) return new THREE.Vector3()
-    const fi = FILES.indexOf(sq[0])
-    const ri = parseInt(sq[1]) - 1
+    const rawFi = FILES.indexOf(sq[0])
+    const rawRi = parseInt(sq[1]) - 1
+    const fi = isFlippedRef.current ? 7 - rawFi : rawFi
+    const ri = isFlippedRef.current ? 7 - rawRi : rawRi
     const { origin, fileStep, rankStep } = grid.current
     return new THREE.Vector3(
       origin.x + fi * fileStep.x + ri * rankStep.x,
@@ -363,6 +370,27 @@ export function ChessScene() {
     eventQueue.current.push(lastAnimationEvent)
   }, [lastAnimationEvent])
 
+  // ── Retournement plateau ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (!grid.current) return
+    // Recompute squareWorldCache avec la nouvelle orientation
+    if (gridWorld.current) {
+      const { origin, fileStepW, rankStepW } = gridWorld.current
+      const map = squareWorldCache.current
+      for (let fi = 0; fi < 8; fi++) {
+        for (let ri = 0; ri < 8; ri++) {
+          const sq = `${FILES[fi]}${ri + 1}`
+          const physFi = isFlippedRef.current ? 7 - fi : fi
+          const physRi = isFlippedRef.current ? 7 - ri : ri
+          map.set(sq, origin.clone()
+            .addScaledVector(fileStepW, physFi)
+            .addScaledVector(rankStepW, physRi))
+        }
+      }
+    }
+    resetBoardFromFen(fen)
+  }, [isFlipped])
+
   // ── Boucle d'animation + traitement séquentiel de la file ─────────────────
   useFrame((_, dt) => {
     anims.current.forEach((anim, nodeId) => {
@@ -430,9 +458,11 @@ export function ChessScene() {
     if (!gridWorld.current) return null
     const { origin, fileStepW, rankStepW } = gridWorld.current
     const delta = new THREE.Vector3(worldPoint.x - origin.x, 0, worldPoint.z - origin.z)
-    const fi = Math.round(delta.dot(fileStepW) / fileStepW.lengthSq())
-    const ri = Math.round(delta.dot(rankStepW) / rankStepW.lengthSq())
-    if (fi < 0 || fi > 7 || ri < 0 || ri > 7) return null
+    const rawFi = Math.round(delta.dot(fileStepW) / fileStepW.lengthSq())
+    const rawRi = Math.round(delta.dot(rankStepW) / rankStepW.lengthSq())
+    if (rawFi < 0 || rawFi > 7 || rawRi < 0 || rawRi > 7) return null
+    const fi = isFlippedRef.current ? 7 - rawFi : rawFi
+    const ri = isFlippedRef.current ? 7 - rawRi : rawRi
     return `${FILES[fi]}${ri + 1}` as Square
   }
 
