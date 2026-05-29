@@ -2,7 +2,7 @@
 // ChessModel — GLB chess_set avec logique de jeu complète
 // ============================================================
 
-import { useGLTF } from '@react-three/drei'
+import { useGLTF, Text } from '@react-three/drei'
 import { useEffect, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
@@ -93,6 +93,61 @@ function LegalDot({ position }: { position: THREE.Vector3 }) {
       <cylinderGeometry args={[0.15, 0.15, 0.02, 24]} />
       <meshBasicMaterial color="#80c060" transparent opacity={0.85} />
     </mesh>
+  )
+}
+
+// ── Coordonnées du plateau ────────────────────────────────────────────────────
+
+function BoardLabels({ gridWorld, isFlipped }: { gridWorld: WorldGrid; isFlipped: boolean }) {
+  const { origin, fileStepW, rankStepW } = gridWorld
+  const sqSize = Math.min(fileStepW.length(), rankStepW.length())
+  const fontSize = sqSize * 0.34
+  const offset = sqSize * 0.72
+
+  // Direction "hors plateau" le long de rank 1 (vers l'observateur) et file a (à gauche)
+  const rankOutDir = rankStepW.clone().normalize().negate()
+  const fileOutDir = fileStepW.clone().normalize().negate()
+
+  const physPos = (fi: number, ri: number) =>
+    origin.clone().addScaledVector(fileStepW, fi).addScaledVector(rankStepW, ri)
+
+  return (
+    <group>
+      {FILES.map((f, fi) => {
+        const label = isFlipped ? FILES[7 - fi] : f
+        const pos = physPos(fi, 0)
+        return (
+          <Text
+            key={`file-${fi}`}
+            position={[pos.x + rankOutDir.x * offset, pos.y + 0.06, pos.z + rankOutDir.z * offset]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            fontSize={fontSize}
+            color="#c8b87a"
+            anchorX="center"
+            anchorY="middle"
+          >
+            {label}
+          </Text>
+        )
+      })}
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((ri) => {
+        const label = isFlipped ? 8 - ri : ri + 1
+        const pos = physPos(0, ri)
+        return (
+          <Text
+            key={`rank-${ri}`}
+            position={[pos.x + fileOutDir.x * offset, pos.y + 0.06, pos.z + fileOutDir.z * offset]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            fontSize={fontSize}
+            color="#c8b87a"
+            anchorX="center"
+            anchorY="middle"
+          >
+            {String(label)}
+          </Text>
+        )
+      })}
+    </group>
   )
 }
 
@@ -487,6 +542,10 @@ export function ChessScene() {
         }}
         onPointerOut={() => { document.body.style.cursor = 'auto' }}
       />
+
+      {gridReady && gridWorld.current && (
+        <BoardLabels gridWorld={gridWorld.current} isFlipped={isFlipped} />
+      )}
 
       {gridReady && phase === 'playing' && (
         <group>
